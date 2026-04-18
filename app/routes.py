@@ -80,12 +80,13 @@ def authorize_google():
     user = db.session.scalar(sa.select(User).where(User.email == email))
 
     if user is None:
-        # If they don't exist, create a brand new account for them instantly!
-        # We use their Google name, or the first part of their email if name is missing
-        username = user_info.get("name") or email.split("@")[0]
+        # Get the name from Google, or default to the email prefix
+        raw_name = user_info.get('name') or email.split('@')[0]
+        
+        # Swap any spaces for underscores to make it URL-safe!
+        username = raw_name.replace(' ', '_')
+        
         user = User(username=username, email=email)
-
-        # We don't set a password_hash because they use Google to log in!
         db.session.add(user)
         db.session.commit()
 
