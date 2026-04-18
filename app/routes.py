@@ -9,7 +9,7 @@ from app.models import Post, User
 
 @app.route('/update_password', methods=['GET', 'POST'])
 @login_required
-def change_password():
+def update_password():
     # A clean way to set the boolean!
     isgoogle = current_user.password_hash is None
 
