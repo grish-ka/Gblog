@@ -4,35 +4,37 @@ from flask import render_template, flash, redirect, url_for, request
 from flask_login import login_user, logout_user, current_user, login_required
 import sqlalchemy as sa
 from app import app, db, oauth
-from app.forms import LoginForm, PostForm, RegistrationForm, EditProfileForm, EmptyForm, ChangePasswordForm
+from app.forms import LoginForm, PostForm, RegistrationForm, EditProfileForm, EmptyForm, ChangePasswordForm, SetPasswordForm
 from app.models import Post, User
 
-@app.route('/change_password', methods=['GET', 'POST'])
+@app.route('/update_password', methods=['GET', 'POST'])
 @login_required
 def change_password():
+    # A clean way to set the boolean!
+    isgoogle = current_user.password_hash is None
 
-    isgoogle = False
+    # Hand them the correct form
+    if isgoogle:
+        form = SetPasswordForm()
+    else:
+        form = ChangePasswordForm()
 
-    # SAFETY NET: If they logged in with Google, they don't have a password to change!
-    if current_user.password_hash is None:
-        isgoogle = True
-
-    form = ChangePasswordForm()
     if form.validate_on_submit():
-        # Check if the old password they typed actually matches the database
-        if not current_user.check_password(form.old_password.data) and not isgoogle:
-            flash('Invalid old password.')
-            return redirect(url_for('change_password'))
+        # Only check the old password if they actually have one
+        if not isgoogle:
+            if not current_user.check_password(form.old_password.data):
+                flash('Invalid old password.')
+                return redirect(url_for('change_password'))
 
-        # If it matches, set the new password and save to the database
+        # If they pass the check (or skipped it because of Google), set the new password
         current_user.set_password(form.new_password.data)
         db.session.commit()
         
-        flash('Your password has been successfully changed!')
+        flash('Your password has been successfully updated!')
         return redirect(url_for('user', username=current_user.username))
 
-    return render_template('change_password.html', title='Change Password', form=form)
-
+    # We pass 'isgoogle' to the template so it knows how to render the page
+    return render_template('update_password.html', title='Password Settings', form=form, isgoogle=isgoogle)
 @app.route('/login/google')
 def login_google():
     # If they are already logged in, don't let them log in again

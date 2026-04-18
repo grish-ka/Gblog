@@ -71,3 +71,11 @@ class ChangePasswordForm(FlaskForm):
         validators=[DataRequired(), EqualTo('new_password', message='Passwords must match')]
     )
     submit = SubmitField('Change Password')
+
+class SetPasswordForm(FlaskForm):
+    new_password = PasswordField('New Password', validators=[DataRequired()])
+    confirm_password = PasswordField(
+        'Confirm New Password', 
+        validators=[DataRequired(), EqualTo('new_password', message='Passwords must match')]
+    )
+    submit = SubmitField('Set Password')
