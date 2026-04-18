@@ -3,9 +3,50 @@ from urllib.parse import urlsplit
 from flask import render_template, flash, redirect, url_for, request
 from flask_login import login_user, logout_user, current_user, login_required
 import sqlalchemy as sa
-from app import app, db
+from app import app, db, oauth
 from app.forms import LoginForm, PostForm, RegistrationForm, EditProfileForm, EmptyForm
 from app.models import Post, User
+
+@app.route('/login/google')
+def login_google():
+    # If they are already logged in, don't let them log in again
+    if current_user.is_authenticated:
+        return redirect(url_for('index'))
+    
+    # Send them to the Google login screen
+    redirect_uri = url_for('authorize_google', _external=True)
+    return oauth.google.authorize_redirect(redirect_uri)
+
+
+@app.route('/authorize/google')
+def authorize_google():
+    # Google sends them back here with a digital token
+    token = oauth.google.authorize_access_token()
+    
+    # We use the token to ask Google for their email and name
+    user_info = token.get('userinfo')
+    if not user_info:
+        flash('Google login failed.')
+        return redirect(url_for('login'))
+        
+    email = user_info['email']
+    
+    # Check if this user already exists in our database
+    user = db.session.scalar(sa.select(User).where(User.email == email))
+    
+    if user is None:
+        # If they don't exist, create a brand new account for them instantly!
+        # We use their Google name, or the first part of their email if name is missing
+        username = user_info.get('name') or email.split('@')[0]
+        user = User(username=username, email=email)
+        
+        # We don't set a password_hash because they use Google to log in!
+        db.session.add(user)
+        db.session.commit()
+        
+    # Log them in and send them to the homepage
+    login_user(user)
+    return redirect(url_for('index'))
 
 
 @app.before_request
