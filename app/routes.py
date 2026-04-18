@@ -4,13 +4,42 @@ from flask import render_template, flash, redirect, url_for, request
 from flask_login import login_user, logout_user, current_user, login_required
 import sqlalchemy as sa
 from app import app, db, oauth
-from app.forms import LoginForm, PostForm, RegistrationForm, EditProfileForm, EmptyForm
+from app.forms import LoginForm, PostForm, RegistrationForm, EditProfileForm, EmptyForm, ChangePasswordForm
 from app.models import Post, User
+
+@app.route('/change_password', methods=['GET', 'POST'])
+@login_required
+def change_password():
+
+    isgoogle = False
+
+    # SAFETY NET: If they logged in with Google, they don't have a password to change!
+    if current_user.password_hash is None:
+        flash('You logged in with Google, so you do not have a password to change.')
+        isgoogle = True
+        return redirect(url_for('user', username=current_user.username))
+
+    form = ChangePasswordForm()
+    if form.validate_on_submit():
+        # Check if the old password they typed actually matches the database
+        if not current_user.check_password(form.old_password.data) and not isgoogle:
+            flash('Invalid old password.')
+            return redirect(url_for('change_password'))
+
+        # If it matches, set the new password and save to the database
+        current_user.set_password(form.new_password.data)
+        db.session.commit()
+        
+        flash('Your password has been successfully changed!')
+        return redirect(url_for('user', username=current_user.username))
+
+    return render_template('change_password.html', title='Change Password', form=form)
 
 @app.route('/login/google')
 def login_google():
     # If they are already logged in, don't let them log in again
     if current_user.is_authenticated:
+        flash('You are already logged in.')
         return redirect(url_for('index'))
     
     # Send them to the Google login screen
@@ -123,10 +152,8 @@ def register():
 @login_required
 def user(username):
     user = db.first_or_404(sa.select(User).where(User.username == username))
-    posts = [
-        {'author': user, 'body': 'Test post #1'},
-        {'author': user, 'body': 'Test post #2'}
-    ]
+    query = sa.select(Post).order_by(Post.timestamp.desc()).where(Post.user_id == user.id)
+    posts = db.session.scalars(query).all()
     form = EmptyForm()
     return render_template('user.html', user=user, posts=posts, form=form)
 
