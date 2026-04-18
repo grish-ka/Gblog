@@ -15,9 +15,7 @@ def change_password():
 
     # SAFETY NET: If they logged in with Google, they don't have a password to change!
     if current_user.password_hash is None:
-        flash('You logged in with Google, so you do not have a password to change.')
         isgoogle = True
-        return redirect(url_for('user', username=current_user.username))
 
     form = ChangePasswordForm()
     if form.validate_on_submit():
