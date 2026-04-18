@@ -1,6 +1,6 @@
 from datetime import datetime, timezone
 from urllib.parse import urlsplit
-from flask import render_template, flash, redirect, url_for, request
+from flask import url_for, redirect, flash, request, session, render_template
 from flask_login import login_user, logout_user, current_user, login_required
 import sqlalchemy as sa
 from app import app, db, oauth
@@ -14,10 +14,33 @@ from app.forms import (
     SetPasswordForm,
     ResetPasswordRequestForm,
     ResetPasswordForm,
+    CompleteProfileForm,
 )
 from app.email import send_password_reset_email
 from app.models import Post, User
 
+@app.route('/complete_profile', methods=['GET', 'POST'])
+def complete_profile():
+    # If someone tries to guess this URL but doesn't have an email in their backpack, kick them out!
+    if 'google_email' not in session:
+        return redirect(url_for('login'))
+        
+    form = CompleteProfileForm()
+    if form.validate_on_submit():
+        # Create the user using the backpack email and the form username
+        user = User(username=form.username.data, email=session['google_email'])
+        db.session.add(user)
+        db.session.commit()
+        
+        # Empty the backpack so the email isn't floating around in memory
+        session.pop('google_email', None)
+        
+        # Log them in and celebrate!
+        login_user(user)
+        flash('Welcome to mBlog! Your profile is set up.')
+        return redirect(url_for('index'))
+        
+    return render_template('complete_profile.html', title='Pick a Username', form=form)
 
 @app.route("/update_password", methods=["GET", "POST"])
 @login_required
@@ -80,15 +103,12 @@ def authorize_google():
     user = db.session.scalar(sa.select(User).where(User.email == email))
 
     if user is None:
-        # Get the name from Google, or default to the email prefix
-        raw_name = user_info.get('name') or email.split('@')[0]
+        # INTERCEPT: They don't exist yet!
+        # Put their Google email into the temporary 'session' backpack
+        session['google_email'] = email
         
-        # Swap any spaces for underscores to make it URL-safe!
-        username = raw_name.replace(' ', '_')
-        
-        user = User(username=username, email=email)
-        db.session.add(user)
-        db.session.commit()
+        # Send them to the new username page instead of logging them in
+        return redirect(url_for('complete_profile'))
 
     # Log them in and send them to the homepage
     login_user(user)
@@ -132,10 +152,9 @@ def login():
     form = LoginForm()
     if form.validate_on_submit():
         user = db.session.scalar(
-            sa.select(User).where(User.username == form.username.data)
-        )
+            sa.select(User).where(User.email == form.email.data))
         if user is None or not user.check_password(form.password.data):
-            flash("Invalid username or password")
+            flash("Invalid email or password")
             return redirect(url_for("login"))
         login_user(user, remember=form.remember_me.data)
         next_page = request.args.get("next")

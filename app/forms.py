@@ -5,9 +5,22 @@ import sqlalchemy as sa
 from app import db
 from app.models import User
 
+class CompleteProfileForm(FlaskForm):
+    username = StringField('Username', validators=[
+        DataRequired(), 
+        Regexp('^\w+$', message="Username must contain only letters, numbers, or underscores.")
+    ])
+    submit = SubmitField('Finish Setup')
+
+    # This completely protects your database from duplicate usernames!
+    def validate_username(self, username):
+        user = db.session.scalar(sa.select(User).where(User.username == username.data))
+        if user is not None:
+            raise ValidationError('That username is already taken. Please choose another.')
 
 class ResetPasswordRequestForm(FlaskForm):
     email = StringField("Email", validators=[DataRequired(), Email()])
+    recaptcha = RecaptchaField()
     submit = SubmitField("Request Password Reset")
 
 
@@ -20,7 +33,7 @@ class ResetPasswordForm(FlaskForm):
 
 
 class LoginForm(FlaskForm):
-    username = StringField("Username", validators=[DataRequired()])
+    email = StringField('Email', validators=[DataRequired(), Email()])
     password = PasswordField("Password", validators=[DataRequired()])
     remember_me = BooleanField("Remember Me")
     recaptcha = RecaptchaField()
@@ -49,7 +62,7 @@ class RegistrationForm(FlaskForm):
 
 
 class EditProfileForm(FlaskForm):
-    username = StringField("Username", validators=[DataRequired()])
+    username = StringField("Username", validators=[DataRequired(), Regexp('^\w+$', message="Username must contain only letters, numbers, or underscores.")])
     about_me = TextAreaField("About me", validators=[Length(min=0, max=140)])
     submit = SubmitField("Submit")
 
