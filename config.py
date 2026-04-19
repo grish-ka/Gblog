@@ -17,7 +17,7 @@ class Config:
     MAIL_USE_TLS = os.environ.get("MAIL_USE_TLS") is not None
     MAIL_USERNAME = os.environ.get("MAIL_USERNAME")
     MAIL_PASSWORD = os.environ.get("MAIL_PASSWORD")
-    ADMINS = ["onboarding@resend.dev"]
+    ADMINS = ["noreply@mblog.lolcathost.dev"]
     RECAPTCHA_PUBLIC_KEY = os.environ.get("RECAPTCHA_PUBLIC_KEY")
     RECAPTCHA_PRIVATE_KEY = os.environ.get("RECAPTCHA_PRIVATE_KEY")
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID")
